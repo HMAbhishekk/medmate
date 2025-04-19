@@ -3,6 +3,14 @@ import pytesseract
 # Set the path to the tesseract executable
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
+
+# Use pytesseract to extract text from the image
+text = pytesseract.image_to_string(img)
+
+print("Extracted Text:")
+print(text)
+
+
 import streamlit as st
 from PIL import Image
 import pytesseract
@@ -13,6 +21,21 @@ from PIL import Image
 import pytesseract
 import re
 import datetime
+import pytesseract
+from PIL import Image
+
+# Set the path to the Tesseract executable (Windows example)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+# Load an image to process
+img = Image.open("path_to_image.jpg")
+
+# Use pytesseract to extract text from the image
+text = pytesseract.image_to_string(img)
+
+print("Extracted Text:")
+print(text)
+
 
 # ✅ Add this line to set the Tesseract executable path (Windows only)
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
