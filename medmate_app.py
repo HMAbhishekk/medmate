@@ -1,10 +1,16 @@
 import streamlit as st
 from datetime import datetime, timedelta
-import sqlite3
-from database import create_tables, add_user, login_user
+from sqlite_users import add_user, login_user
+from sqlite_health import (
+    save_reminder, get_todays_reminders,
+    save_appointment, get_todays_appointments,
+    save_health_log
+)
+from database import init_db
 
-# Setup
-create_tables()
+# Initialize database
+init_db()
+
 st.set_page_config(page_title="MedMate", page_icon="💊", layout="centered")
 
 # Session State
@@ -21,8 +27,7 @@ def login_register():
 
     if menu == "Login":
         if st.button("Login"):
-            user = login_user(username, password)
-            if user:
+            if login_user(username, password):
                 st.success(f"Welcome back, {username}!")
                 st.session_state.logged_in = True
                 st.session_state.username = username
@@ -34,9 +39,9 @@ def login_register():
                 add_user(username, password)
                 st.success("Account created! You can log in now.")
             except:
-                st.error("Username already exists!")
+                st.error("Username may already exist!")
 
-# Logged-in Dashboard
+# Dashboard
 def dashboard(username):
     st.sidebar.success(f"Logged in as {username}")
     menu = st.sidebar.radio("Navigate", ["🏠 Home", "💉 Medication", "📅 Appointments", "📊 Logs", "🚪 Logout"])
@@ -55,12 +60,7 @@ def dashboard(username):
         end = st.date_input("End Date", datetime.today() + timedelta(days=7))
 
         if st.button("Save Reminder"):
-            conn = sqlite3.connect("users.db")
-            c = conn.cursor()
-            c.execute("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?)",
-                      (username, med_name, dosage, times, start.isoformat(), end.isoformat()))
-            conn.commit()
-            conn.close()
+            save_reminder(username, med_name, dosage, times, start.isoformat(), end.isoformat())
             st.success("Reminder Saved!")
 
     elif menu == "📅 Appointments":
@@ -71,12 +71,7 @@ def dashboard(username):
         reason = st.text_area("Reason")
 
         if st.button("Book"):
-            conn = sqlite3.connect("users.db")
-            c = conn.cursor()
-            c.execute("INSERT INTO appointments VALUES (?, ?, ?, ?, ?)",
-                      (username, doc, date.isoformat(), time.strftime("%H:%M"), reason))
-            conn.commit()
-            conn.close()
+            save_appointment(username, doc, date.isoformat(), time.strftime("%H:%M"), reason)
             st.success("Appointment Booked!")
 
     elif menu == "📊 Logs":
@@ -87,12 +82,7 @@ def dashboard(username):
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         if st.button("Save Log"):
-            conn = sqlite3.connect("users.db")
-            c = conn.cursor()
-            c.execute("INSERT INTO health_logs VALUES (?, ?, ?, ?, ?)",
-                      (username, temp, symptoms, mood, now))
-            conn.commit()
-            conn.close()
+            save_health_log(username, temp, symptoms, mood, now)
             st.success("Health Log Saved!")
 
     elif menu == "🚪 Logout":
@@ -100,20 +90,16 @@ def dashboard(username):
         st.session_state.username = ""
         st.rerun()
 
-# Simple Notification System
+# Show Today's Reminders/Notifications
 def show_notifications(username):
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
     today = datetime.today().date().isoformat()
-    c.execute("SELECT med_name FROM reminders WHERE username = ? AND start_date <= ? AND end_date >= ?", (username, today, today))
-    meds_today = c.fetchall()
+    meds_today = get_todays_reminders(username, today)
     if meds_today:
-        st.info(f"💡 You have medication reminders today: " + ", ".join(m[0] for m in meds_today))
-    c.execute("SELECT date, doctor FROM appointments WHERE username = ? AND date = ?", (username, today))
-    apps = c.fetchall()
-    if apps:
-        st.warning(f"📅 You have an appointment with Dr. {apps[0][1]} today!")
-    conn.close()
+        st.info("💡 You have medication reminders today: " + ", ".join(m['med_name'] for m in meds_today))
+
+    apps_today = get_todays_appointments(username, today)
+    for appt in apps_today:
+        st.warning(f"📅 You have an appointment with Dr. {appt['doctor']} today!")
 
 # App Launch
 if not st.session_state.logged_in:
